@@ -1,0 +1,44 @@
+.aius-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.aius-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.aius-item {
+  border-radius: 999px;
+  border: 1px solid #ffd6ec;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  background: #fff;
+  cursor: pointer;
+}
+
+.aius-item.active {
+  background: #ffb3d9;
+  color: #381322;
+}
+
+.aius-output {
+  margin-top: 4px;
+  padding: 10px;
+  border-radius: 12px;
+  background: #ffe6f2;
+  border: 1px solid #ffd6ec;
+}
+
+.aius-text {
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.tiny-label {
+  font-size: 0.7rem;
+  color: #999;
+  margin-bottom: 4px;
+}
