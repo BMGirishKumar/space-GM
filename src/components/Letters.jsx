@@ -1,11 +1,10 @@
 // src/components/Letters.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   collection,
   addDoc,
   serverTimestamp,
   onSnapshot,
-  orderBy,
   query,
   where,
 } from "firebase/firestore";
@@ -18,6 +17,9 @@ function Letters({ currentUser }) {
   const [sending, setSending] = useState(false);
   const [loadError, setLoadError] = useState(null);
 
+  // heart burst state
+  const [bursts, setBursts] = useState([]); // each: { id, left, top, char }
+
   // reactive auth uid
   const [authUid, setAuthUid] = useState(auth?.currentUser?.uid ?? null);
   useEffect(() => {
@@ -29,6 +31,9 @@ function Letters({ currentUser }) {
 
   const currentUid = authUid; // reactive value
   const appId = currentUser?.id ?? null; // "jake" / "amy"
+
+  // ref for send button container (to position bursts)
+  const sendRef = useRef(null);
 
   useEffect(() => {
     if (!appId && !currentUid) return;
@@ -70,15 +75,18 @@ function Letters({ currentUser }) {
     // Query 1: toAuthUid (if we have auth UID)
     if (currentUid) {
       try {
+        // NOTE: removed orderBy to avoid requiring a composite index.
+        // We'll sort locally after snapshot.
         const q1 = query(
           collection(db, "letters"),
-          where("toAuthUid", "==", currentUid),
-          orderBy("createdAt", "desc")
+          where("toAuthUid", "==", currentUid)
         );
         const unsub1 = onSnapshot(
           q1,
           (snap) => {
             const docs = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+            // sort locally by createdAt desc
+            docs.sort((a, b) => getMillis(b.createdAt) - getMillis(a.createdAt));
             console.log("toAuthUid query docs:", docs);
             snapshotsStore[0] = docs;
             mergeAndSet(snapshotsStore);
@@ -98,15 +106,17 @@ function Letters({ currentUser }) {
     // Query 2: toId (app-level id, e.g., "jake"/"amy")
     if (appId) {
       try {
+        // NOTE: removed orderBy to avoid requiring a composite index.
         const q2 = query(
           collection(db, "letters"),
-          where("toId", "==", appId),
-          orderBy("createdAt", "desc")
+          where("toId", "==", appId)
         );
         const unsub2 = onSnapshot(
           q2,
           (snap) => {
             const docs = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+            // sort locally by createdAt desc
+            docs.sort((a, b) => getMillis(b.createdAt) - getMillis(a.createdAt));
             console.log("toId query docs:", docs);
             snapshotsStore[1] = docs;
             mergeAndSet(snapshotsStore);
@@ -126,6 +136,27 @@ function Letters({ currentUser }) {
     // Cleanup all subs
     return () => subs.forEach((u) => u && u());
   }, [appId, currentUid]);
+
+  // helper to spawn a small heart burst at the send button
+  const spawnHeartBurst = () => {
+    const el = sendRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    // generate 5 tiny hearts with random offsets
+    const chars = ["💗", "💕", "💞", "💝"];
+    const newBursts = Array.from({ length: 5 }).map((_, i) => {
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${i}`;
+      // position relative to the button container
+      const left = Math.round(rect.width / 2 + (Math.random() - 0.5) * 24);
+      const top = Math.round(rect.top - rect.height / 2 + (Math.random() - 0.5) * 8);
+      return { id, left, top, char: chars[Math.floor(Math.random() * chars.length)] };
+    });
+    // Add bursts; each will be removed after 900ms
+    setBursts((s) => [...s, ...newBursts]);
+    setTimeout(() => {
+      setBursts((s) => s.filter((b) => !newBursts.some((nb) => nb.id === b.id)));
+    }, 900);
+  };
 
   const handleSendLetter = async (e) => {
     e.preventDefault();
@@ -149,6 +180,8 @@ function Letters({ currentUser }) {
 
     try {
       await addDoc(collection(db, "letters"), payload);
+      // sending succeeded -> spawn heart burst and clear text
+      spawnHeartBurst();
       setText("");
     } catch (err) {
       console.error("Failed to save letter:", err);
@@ -166,7 +199,7 @@ function Letters({ currentUser }) {
   };
 
   return (
-    <div className="card">
+    <div className="card" style={{ position: "relative" }}>
       <h2>secret letters 💌</h2>
       <p className="hint">Words that wait patiently until the right eyes are ready.</p>
 
@@ -214,17 +247,38 @@ function Letters({ currentUser }) {
 
       <section>
         <h3 style={{ fontSize: "0.9rem", margin: "0 0 6px" }}>Write a new letter</h3>
-        <form onSubmit={handleSendLetter}>
+        <form onSubmit={handleSendLetter} className="chat-input-row" style={{ alignItems: "center" }}>
           <textarea
-            rows={3}
+            rows={2}
+            className="chat-textarea"
             placeholder={`Write something just for ${appId === "jake" ? "Mriduuuuuu" : "Girishhhhhhh"}…`}
             value={text}
             onChange={(e) => setText(e.target.value)}
           />
-          <div style={{ marginTop: 8, textAlign: "right" }}>
-            <button className="primary" type="submit" disabled={sending}>
-              {sending ? "saving…" : "save letter"}
+
+          <div ref={sendRef} style={{ position: "relative", display: "flex", alignItems: "center", marginLeft: 8 }}>
+            <button
+              type="submit"
+              disabled={sending || !text.trim()}
+              className="send-heart"
+              aria-label="Send letter"
+            >
+              <span className={`heart-emoji ${sending ? "sending" : ""}`}>💗</span>
             </button>
+
+            {/* render burst hearts absolutely positioned near the send button */}
+            {bursts.map((b) => (
+              <span
+                key={b.id}
+                className="burst-heart"
+                style={{
+                  left: b.left,
+                  top: b.top,
+                }}
+              >
+                {b.char}
+              </span>
+            ))}
           </div>
         </form>
       </section>
