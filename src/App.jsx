@@ -6,13 +6,14 @@ import MemoryWall from "./components/MemoryWall";
 import Timeline from "./components/Timeline";
 import Letters from "./components/Letters";
 import { auth } from "./firebase";
+import MusicRoom from "./components/MusicRoom";
 import {
   signInWithEmailAndPassword,
   onAuthStateChanged,
   signOut,
 } from "firebase/auth";
 
-const TABS = ["Timeline", "Memory Wall", "Chat", "Letters"];
+const TABS = ["Timeline", "Memory Wall", "Chat", "Letters", "Music"];
 
 function App() {
   const [currentTab, setCurrentTab] = useState("Timeline");
@@ -251,6 +252,7 @@ function App() {
           )}
           {currentTab === "Chat" && <Chat currentUser={currentUser} />}
           {currentTab === "Letters" && <Letters currentUser={currentUser} />}
+          {currentTab === "Music" && <MusicRoom currentUser={currentUser} />}
         </main>
       </div>
     </div>
